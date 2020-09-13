@@ -92,7 +92,7 @@ character(icha) orderLine ! the content of line recording the order
     rewind(478)
     
     ! read coordinates of atoms
-    allocate( coord(3,Natoms), eleName(Natoms) )
+    allocate( coord(3,Natoms), p(3,Natoms), eleName(Natoms) )
     read(478,*) ! NA
     do i = 1, NA
         read(478, *) eleName( order(i) ), ( coord(j,order(i)), j=1,3 )

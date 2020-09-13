@@ -7,7 +7,9 @@ pot = ohch4.o
 objects = main.o readInput.o initMol.o initTraj.o
 
 default : $(objects) $(modules)
-	$(FC) $(FLAGS) $(objects) $(modules) $(pot) ${MKLROOT}/lib/intel64/libmkl_lapack95_lp64.a -o $(EXE)
+	$(FC) $(FLAGS) $(objects) $(modules) $(pot) \ 
+	${MKLROOT}/lib/intel64/libmkl_lapack95_lp64.a \ 
+	-o $(EXE)
 	time ./$(EXE) ohch4.in | tee stdout.log
 
 clean :

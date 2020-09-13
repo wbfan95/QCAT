@@ -8,19 +8,120 @@ implicit none
     
     call ABrandThermal ! initial momentum
     call ABrotState ! rotational states
+    call ABvibState ! vibrational states
     
-    call combineCoord
-    call ABvibState
+    call ABremoveTranslation
+    call ABremoveAngularMomentum
     
     call unloadInitMol
 
 end subroutine
 
 
-subroutine ABvibState
+subroutine ABremoveAngularMomentum
 use para
 implicit none
+real(inum) :: initTemp
 
+    write(*,*) 'Removing overall angular momentum...'
+    call splitCoord
+    if (NA .gt. 1) call removeAngularMomentum(NA, coordA, pA, eleMassA)
+    if (NB .gt. 1) call removeAngularMomentum(NB, coordB, pB, eleMassB)
+    call combineCoord
+    call getTemp(Natoms, eleMass, p, DOF, initTemp)
+    write(*,'(A,F7.2)') ' Temperature (K) : ', initTemp * au2K
+
+end subroutine
+
+
+subroutine removeAngularMomentum(Natoms, coord, p, eleMass)
+use constant
+implicit none
+integer :: Natoms
+real(inum), intent(in) :: coord(3, Natoms)
+real(inum), intent(inout) :: p(3, Natoms)
+real(inum), intent(in) :: eleMass(Natoms)
+integer i
+real(inum) q(3,Natoms), COM(3)
+real(inum) AM(3), J(3) ! angular momentum, sum AM
+real(inum) IT(3,3), ITinv(3,3)
+real(inum) omega(3), omegaDotq(3)
+
+    ! remove center of mass
+    call getCOM(Natoms, coord, eleMass, COM)
+    do i = 1, 3
+        q(i,1:Natoms) = coord(i,1:Natoms) - COM(i)
+    end do
+    
+    ! calculate total angular momentum
+    J(1:3) = 0d0
+    do i = 1, Natoms
+        call cross_product(q(1:3,i), p(1:3,i), AM(1:3))
+        J(1:3) = J(1:3) + AM(1:3)
+    end do
+    !!!!! wrong code : calculate angular momentum
+    !!!AM = matmul( q, p ) ! L = p\dot r, L_x = p_x x
+    !!!do i = 1, 3
+    !!!    J(i) = sum( AM(i,1:Natoms) )
+    !!!end do
+    
+    call computeInertiaTensor(Natoms, q, eleMass, IT)
+    call pinv(3, IT, ITinv)
+    omega = matmul(ITinv, J)
+    !#write(*,*) 'ITinv'
+    !#write(*,'(3F12.6)') ITinv
+    !#write(*,*) 'coord'
+    !#write(*,'(3F12.6)') q
+    do i = 1, Natoms
+        call cross_product(omega(1:3), q(1:3,i), omegaDotq(1:3))
+        p(1:3,i) = p(1:3,i) - eleMass(i) * omegaDotq(1:3)
+    end do
+    !#write(*,*) 'omegaDotq'
+    !#write(*,'(3F12.6)') omegaDotq
+
+end subroutine
+
+
+subroutine ABremoveTranslation
+use para
+implicit none
+real(inum) initTemp
+
+    if(ibug) write(*,*) 'Momentum before removing translation (au) :'
+    if(ibug) call logXYZ(Natoms, p, eleName)
+    call splitCoord
+    call removeTranslation(NA, pA)
+    call removeTranslation(NB, pB)
+    call combineCoord
+    if(ibug) write(*,*) 'Momentum after removing translation (au) :'
+    if(ibug) call logXYZ(Natoms, p, eleName)
+    
+    call getTemp(Natoms, eleMass, p, DOF, initTemp)
+    write(*,'(A,F7.2)') ' Temperature (K) : ', initTemp * au2K
+
+end subroutine
+
+
+subroutine removeTranslation(Natoms, p)
+use constant
+implicit none
+integer, intent(in) :: Natoms
+real(inum), intent(inout) :: p(3, Natoms)
+real(inum) COP(3) ! center of momentum
+integer i
+
+    do i = 1, 3
+        COP(i) = sum( p(i,1:Natoms) )
+        p(i,1:Natoms) = p(i,1:Natoms) - COP(i)
+    end do
+
+end subroutine
+
+
+subroutine ABvibState
+implicit none
+
+    call combineCoord
     call vibInit
     call vibGen
 
@@ -32,19 +133,21 @@ subroutine vibGen
 use para
 implicit none
 real(inum) :: Evib(nMode), xi(nMode), N(nMode)
-real(inum) :: EHO(nMode), rturn(nMode), sigmaX(nMode)
+real(inum) :: EHO(nMode), rturn(nMode), sigmaX(nMode), sigmaP(nMode)
 ! displacement of coordinate and momentum, `ksi` is random number
 real(inum) :: qvdis(3,Natoms), pvdis(3,Natoms), ksi(2,nMode)
+real(inum) ppm ! momentum positive or minus, random number
 integer i, j
 
     if (nMode .eq. 0) call logError('The number of vibrational mode is zero! ')
     call random_number(xi)
     do i = 1, nMode
-        Evib(i) = - tempAU * dlog( 1 - xi(i) )
-        N(i) = Evib(i) / freq(i)
+        Evib(i) = - kB * temp * dlog( 1 - xi(i) ) / au2J
+        N(i) = Evib(i)*au2J / (freq(i)*au2Hz) / hbar
         EHO(i) = hbar * freq(i) * au2Hz * (N(i) + 0.5d0) / au2J
         rturn(i) = dsqrt(2d0 * EHO(i)*au2J ) / (freq(i)*au2Hz) / dsqrt(au2kg) / au2m
-        sigmaX(i) = dsqrt(hbar / (2d0 * au2kg * freq(i) * au2Hz)) / au2m
+        sigmaX(i) = dsqrt(hbar / (2d0 * au2kg * freq(i)*au2Hz)) / au2m
+        sigmaP(i) = hbar / (2d0 * sigmaX(i)*au2m) / (au2kg*au2m/au2s)
     end do
     if (ibug) write(*,*) 'Vibrational energy (kcal/mol) : '
     if (ibug) write(*,'(9F7.2)') Evib * au2kcm
@@ -52,10 +155,12 @@ integer i, j
     if (ibug) write(*,'(9F7.2)') N
     if (ibug) write(*,*) 'Harmonic energy (kcal/mol) : '
     if (ibug) write(*,'(9F7.2)') EHO * au2kcm
-    write(*,*) 'Turning points (Ang) : '
-    write(*,'(9F7.2)') rturn * b2a
-    write(*,*) 'Variance of harmonic oscillator (Ang) :'
-    write(*,'(9F7.2)') sigmaX * b2a
+    if (ibug) write(*,*) 'Turning points (Ang) : '
+    if (ibug) write(*,'(9F7.2)') rturn * b2a
+    if (ibug) write(*,*) 'Variance of harmonic oscillator (Ang) :'
+    if (ibug) write(*,'(9F7.2)') sigmaX * b2a
+    if (ibug) write(*,*) 'Variance of momentum (au) *100:'
+    if (ibug) write(*,'(9F7.2)') sigmaP * 100d0
     
     call random_number(ksi(1:2,1:nMode))
     do i = 1, Natoms
@@ -66,7 +171,8 @@ integer i, j
             dcos(2d0 * pi * ksi(2,1:nMode)) &
         )
         pvdis(j,i) = sum( &
-            fVec((i-1)*3+j,1:nMode) * 1d0/(2d0*sigmaX(1:nMode)) * &
+            fVec((i-1)*3+j,1:nMode) * & !1d0/(2d0*sigmaX(1:nMode)) * &
+            sigmaP(1:nMode) * & 
             dsqrt(-2d0 * dlog(ksi(1,1:nMode)) ) * &
             dsin(2d0 * pi * ksi(2,1:nMode)) &
         )
@@ -87,15 +193,26 @@ integer i, j
         pvdis(1:3, i) = pvdis(1:3, i) * dsqrt(eleMass(i))
     end do
     
-    write(*,*) 'Vibrational displacement of coordinates (Ang) : '
-    call logXYZ(Natoms, qvdis * b2a, eleName)
-    write(*,*) 'Vibrational momentum (a.u.) : '
-    call logXYZ(Natoms, pvdis, eleName)
+    if (ibug) write(*,*) 'Vibrational displacement of coordinates (Ang) : '
+    if (ibug) call logXYZ(Natoms, qvdis * b2a, eleName)
+    if (ibug) write(*,*) 'Vibrational momentum (a.u.) : '
+    if (ibug) call logXYZ(Natoms, pvdis, eleName)
     !!!#write(*,*) Natoms; write(*,*); 
     !!!#call logXYZ(Natoms, (coord + qvdis) * b2a, eleName)
     !!!#write(*,*) Natoms; write(*,*); 
     !!!#call logXYZ(Natoms, (coord) * b2a, eleName)
     
+    do i = 1, Natoms
+        do j = 1, 3
+            call random_number(ppm)
+            if ( ppm .gt. 0.5d0 ) then
+                p(j,i) = p(j,i) + pvdis(j,i)
+            else 
+                p(j,i) = p(j,i) - pvdis(j,i)
+            end if
+        end do
+    end do
+    coord = coord + qvdis
 
 end subroutine
 
@@ -203,6 +320,9 @@ real(8) :: rotTemp
     call getTemp(NB, eleMassB, rotpB, DOFB, rotTemp)
     write(*,'(A,F8.2)') ' B Rotational temperature (K) :', rotTemp * au2K
     end if
+    
+    pA = pA + rotpA
+    pB = pB + rotpB
 
 end subroutine
 
@@ -582,7 +702,7 @@ real(8), external :: deg ! rad to degree
     
     ! compute Euler angles ! computationally expensive because of no use of repetitive variable
     if (ibug) then
-        theta = 2d0*atan2(dsqrt( (q1*q1+q2*q2),(q0*q0+q3*q3) ))
+        theta = 2d0*atan(dsqrt( (q1*q1+q2*q2)/(q0*q0+q3*q3) ))
         phi = atan2(q2,q1) + atan2(q3,q0)
         varphi = -atan2(q2,q1) + atan2(q3,q0)
         write(*,"(' Euler angles (degree): ', 3F9.2)") deg(theta), deg(phi), deg(varphi)

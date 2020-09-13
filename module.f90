@@ -9,7 +9,7 @@ implicit none
     real(inum), parameter :: pi = dacos(-1d0)
     
     ! physical constant
-    real(inum), parameter :: kb = 1d0 ! au/K, kB = 1.380649 J/K
+    real(inum), parameter :: kb = 1.380649d-23 ! au/K, kB = 1.380649E-23 J/K
     real(inum), parameter :: clight = 2.99792458d8 ! c, light speed, unit : m/s
     real(inum), parameter :: hbar = 1.0545718176461565e-34 ! Plank constant / 2 / Pi, J·s
     
@@ -18,6 +18,7 @@ implicit none
     real(inum), parameter :: au2kcm = 627.509474063056d0 ! kcal/mol
     real(inum), parameter :: au2K = 315775.02480407d0
     real(inum), parameter :: au2fs = 0.024188843265857d0 ! time not period
+    real(inum), parameter :: au2s = 2.4188843265857d-17
     real(inum), parameter :: au2J = 4.3597447222071d-18
     real(inum), parameter :: au2cm1 = 219474.6313632d0 ! cm^{-1}
     real(inum), parameter :: au2kg = 1.6605390666e-27
@@ -70,6 +71,7 @@ implicit none
     real(inum), allocatable :: coordAInit(:,:), coordBInit(:,:) ! save initialized molecule here
     
     ! trajectory
+    real(inum), allocatable :: p(:,:) ! momentum
     real(inum), allocatable :: pA(:,:), pB(:,:) ! momentum
     integer :: nMode ! number of valid vibrational modes
     real(inum), allocatable :: freq(:), fVec(:,:)
@@ -164,6 +166,17 @@ pinvA = matmul(VS1, transpose(U))
 !# write(*,'(3F12.6)') matmul( matmul( transpose(VT), SM ), transpose(U) )
 !# write(*,*)
 
+end subroutine
+
+! subroutine : cross product
+subroutine cross_product(a, b, cross)
+real(8), intent(in) :: a(3), b(3)
+real(8), intent(out) :: cross(3)
+
+  cross(1) = a(2) * b(3) - a(3) * b(2)
+  cross(2) = a(3) * b(1) - a(1) * b(3)
+  cross(3) = a(1) * b(2) - a(2) * b(1)
+  
 end subroutine
 
 !!! subroutine : normalize all column vector

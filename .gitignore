@@ -2,6 +2,9 @@
 confidence
 test
 ohch4.f*
+.fuse_hidden*
+fort*
+QCAT
 
 # my file
 *.xyz
@@ -14,6 +17,8 @@ ohch4.f*
 *.log
 *.dat
 *.ai
+*.csv
+*.xlsx
 
 # Prerequisites
 *.d

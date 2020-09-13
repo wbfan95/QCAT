@@ -13,11 +13,11 @@ temperature = 300
 ensemble = nve
 timestep = 0.1
 
-debug
+#debug
 
 nprint = 100
 
-ntraj = 2
+ntraj = 1000
 nstep = 1000
 #b0 = 5
 

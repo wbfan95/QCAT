@@ -216,7 +216,7 @@ integer :: i, j
     do j = 1, NB ! order in B molecule
         i = j + NA ! real order in PES rank
         coordB(1:3,j) = coord(1:3, order(i))
-        pB(1:3,i) = p(1:3, order(i))
+        pB(1:3,j) = p(1:3, order(i))
         eleMassB(j) = eleMass( order(i) )
         eleNameB(j) = eleName( order(i) )
     end do
