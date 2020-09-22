@@ -4,12 +4,14 @@ FLAGS = -mkl
 # -O2 -static-intel
 pot = ohch4.o
 
-objects = main.o readInput.o initMol.o initTraj.o
+objects = main.o readInput.o initMol.o initTraj.o \
+propTraj.o
 
 default : $(objects) $(modules)
-	$(FC) $(FLAGS) $(objects) $(modules) $(pot) \ 
-	${MKLROOT}/lib/intel64/libmkl_lapack95_lp64.a \ 
+	$(FC) $(FLAGS) $(objects) $(modules) $(pot) \
+	${MKLROOT}/lib/intel64/libmkl_lapack95_lp64.a \
 	-o $(EXE)
+	mkdir -p traj
 	time ./$(EXE) ohch4.in | tee stdout.log
 
 clean :
@@ -42,3 +44,6 @@ initMol.o : initMol.f90 $(modules)
 
 initTraj.o : initTraj.f90 $(modules)
 	$(FC) $(FLAGS) -c initTraj.f90
+
+propTraj.o : propTraj.f90 $(modules)
+	$(FC) $(FLAGS) -c propTraj.f90

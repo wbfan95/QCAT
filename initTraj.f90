@@ -12,8 +12,38 @@ implicit none
     
     call ABremoveTranslation
     call ABremoveAngularMomentum
+    call ABrandTrans ! initial translation
     
     call unloadInitMol
+
+end subroutine
+
+
+subroutine ABrandTrans
+use para
+implicit none
+real(inum) xi, u, u0, Etrans, tempNow
+    
+    write(*,*); write(*,*) 'Generating initial relative velocity... '
+    call random_number(xi)
+    u0 = 1d5; u = 1d0
+    do while ( abs(u0 - u) .gt. 1d-8 )
+        u0 = u
+        u = u0 + (u0 + 1 - (1-xi)*dexp(u0)) / u0
+    end do
+    Etrans = u * temp
+    write(*,'(A,F12.6)') ' Translation energy (kcal/mol):', Etrans * au2kcm
+     
+    call splitCoord
+    pA(3,:) = pA(3,:) - dsqrt(2d0*muAB*Etrans)
+    pB(3,:) = pB(3,:) + dsqrt(2d0*muAB*Etrans)
+    call combineCoord
+    
+    call getTemp(Natoms, eleMass, p, DOF, tempNow)
+    write(*,'(A,F7.2)') ' Temp. (K): ', tempNow*au2K
+    p = p * dsqrt(temp/tempNow)
+    call getTemp(Natoms, eleMass, p, DOF, tempNow)
+    write(*,'(A,F7.2)') ' Temp. scaled (K): ', tempNow*au2K
 
 end subroutine
 
@@ -23,7 +53,7 @@ use para
 implicit none
 real(inum) :: initTemp
 
-    write(*,*) 'Removing overall angular momentum...'
+    write(*,*); write(*,*) 'Removing overall angular momentum...'
     call splitCoord
     if (NA .gt. 1) call removeAngularMomentum(NA, coordA, pA, eleMassA)
     if (NB .gt. 1) call removeAngularMomentum(NB, coordB, pB, eleMassB)
@@ -303,9 +333,9 @@ real(8) :: rotTemp
     !write(*,*) 'Molecule A'
     if (NA .gt. 1) then
     if (ilinearA) then
-        call linearRot(NA, coordA, eleMassA, tempAu, RIA, rotpA)
+        call linearRot(NA, coordA, eleMassA, temp, RIA, rotpA)
     else
-        call nonLinearRot(NA, coordA, eleMassA, tempAu, RIA, rotpA)
+        call nonLinearRot(NA, coordA, eleMassA, temp, RIA, rotpA)
     end if
     call getTemp(NA, eleMassA, rotpA, DOFA, rotTemp)
     write(*,'(A,F8.2)') ' A Rotational temperature (K) :', rotTemp * au2K
@@ -313,9 +343,9 @@ real(8) :: rotTemp
     !write(*,*) 'Molecule B'
     if (NB .gt. 1) then
     if (ilinearB) then
-        call linearRot(NB, coordB, eleMassB, tempAu, RIB, rotpB)
+        call linearRot(NB, coordB, eleMassB, temp, RIB, rotpB)
     else
-        call nonLinearRot(NB, coordB, eleMassB, tempAu, RIB, rotpB)
+        call nonLinearRot(NB, coordB, eleMassB, temp, RIB, rotpB)
     end if
     call getTemp(NB, eleMassB, rotpB, DOFB, rotTemp)
     write(*,'(A,F8.2)') ' B Rotational temperature (K) :', rotTemp * au2K
@@ -581,8 +611,8 @@ implicit none
 real(inum) :: rotTempA, rotTempB
 
     write(*,*); write(*,*) 'Generate initial momentum...'
-    call randThermal(NA, eleMassA, tempAU, pA)
-    call randThermal(NB, eleMassB, tempAU, pB)
+    call randThermal(NA, eleMassA, temp, pA)
+    call randThermal(NB, eleMassB, temp, pB)
 
     call getTemp(NA, eleMassA, pA, DOFA, rotTempA)
     call getTemp(NB, eleMassB, pB, DOFB, rotTempB)

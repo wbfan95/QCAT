@@ -75,16 +75,19 @@ implicit none
     real(inum), allocatable :: pA(:,:), pB(:,:) ! momentum
     integer :: nMode ! number of valid vibrational modes
     real(inum), allocatable :: freq(:), fVec(:,:)
+    integer :: ntraj, nstep
+    integer :: traj
     
     ! system
     character(3) :: ensemble
-    real(inum) :: temp, tempAU
-    real(inum) :: tstep, tstepAU
+    logical :: thermostat
+    real(inum) :: tempSI, temp
+    real(inum) :: tstepSI, tstep
     logical :: b0_opt
     real(inum) :: b0, r0 ! r0 = 2.2*(diameter A + diameter B) ! ANT 2019 manual P71
     
     ! output
-    integer :: nprint, ntraj
+    integer :: nprint, nxyz
 
 
 end module
@@ -237,7 +240,6 @@ real(8), intent(in), optional :: opt_std
 real(8) zeta(2), mean, std
 real(8), parameter :: pi = dacos(-1d0)
 
-
     if (present(opt_mean) ) then
         mean = opt_mean
     else
@@ -321,6 +323,7 @@ integer :: i
     length = dsqrt(length)
 
 end subroutine
+
 
 ! subroutine : shift coordinate
 subroutine transCoord(Natoms, coord, vec)

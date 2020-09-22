@@ -148,6 +148,7 @@ integer :: lresult
         b0_opt = .false.
         write(*,*) '`B0` will be generated randomly! '
     end if
+    
     ! ensemble
     call locPara(479, 'ENS', locOut, lresult)
     if (lresult .gt. 0) then; read(locOut, *) ensemble
@@ -156,35 +157,69 @@ integer :: lresult
         write(*,*) '`ENSEMBLE` was set to default NVE! '
     end if
     write(*,"(' Ensemble    : ', A3)") ensemble
-    
-    call locPara(479, 'NT', locOut, lresult)
-    if (lresult .gt. 0) then; read(locOut, *) ntraj
+    if ( ensemble .eq. 'NVE' ) then
+        thermostat = .false.
     else
-        ntraj = 1
+        thermostat = .true.
+    end if
+    
+    ! print gap
+    call locPara(479, 'NP', locOut, lresult)
+    if (lresult .gt. 0) then; read(locOut, *) Nprint
+    else
+        Nprint = 100
+        write(*,*) '`NPRINT` was set to default 100! '
+    end if
+    write(*,"(' N_print     : ', I8)") Nprint
+    
+    ! number of steps
+    call locPara(479, 'NS', locOut, lresult)
+    if (lresult .gt. 0) then; read(locOut, *) Nstep
+    else
+        Nstep = 1000
+        write(*,*) '`NSTEP` was set to default 1000! '
+    end if
+    write(*,"(' N_step      : ', I8)") Nstep
+    
+    ! frequency of printing .xyz
+    call locPara(479, 'NX', locOut, lresult)
+    if (lresult .gt. 0) then; read(locOut, *) Nxyz
+    else
+        Nxyz = 10
+        write(*,*) '`NXYZ` was set to default 10! '
+    end if
+    write(*,"(' N_xyz       : ', I8)") Nxyz
+    
+    ! number of trajectories
+    call locPara(479, 'NT', locOut, lresult)
+    if (lresult .gt. 0) then; read(locOut, *) Ntraj
+    else
+        Ntraj = 1
         write(*,*) '`NTRAJ` was set to default 1! '
     end if
-    write(*,"(' Ntraj       : ', I8)") Ntraj
+    write(*,"(' N_traj      : ', I8)") Ntraj
     
     ! temperature
     call locPara(479, 'TE', locOut, lresult)
-    if (lresult .gt. 0) then; read(locOut, *) temp
+    if (lresult .gt. 0) then; read(locOut, *) tempSI
     else
-        temp = 298.15d0
+        tempSI = 298.15d0
         write(*,*) '`TEMPERATURE` was set to default 298.15K! '
     end if
-    tempau = temp / au2K
-    write(*,"(' Temperature : ', F8.2 '  K,  ', F12.6, ' au')") temp, tempAU
+    temp = tempSI / au2K
+    write(*,"(' Temperature : ', F8.2 '  K,  ', F12.6, ' au')") tempSI, temp
     
     ! timestep
     call locPara(479, 'TI', locOut, lresult)
-    if (lresult .gt. 0) then; read(locOut, *) tstep
+    if (lresult .gt. 0) then; read(locOut, *) tstepSI
     else
-        tstep = 0.1d0
+        tstepSI = 0.01d0
         write(*,*) '`TIMESTEP` was set to default 0.1fs! '
     end if
-    tstepAU = tstep / au2fs
-    write(*,"(' Timestep    : ', F8.2 ' fs,  ', F12.6, ' au')") tstep, tstepAU
-
+    tstep = tstepSI / au2fs
+    write(*,"(' Timestep    : ', F8.2 ' fs,  ', F12.6, ' au')") tstepSI, tstep
+    
+    close(479)
 
 end subroutine
 

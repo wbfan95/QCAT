@@ -11,13 +11,14 @@ C       -0.00935642     0.00268777     1.31043692
 
 temperature = 300
 ensemble = nve
-timestep = 0.1
+timestep = 0.003
 
 #debug
 
 nprint = 100
+nxyz = 10
 
-ntraj = 1000
-nstep = 1000
-#b0 = 5
+ntraj = 10
+nstep = 5000
+
 
